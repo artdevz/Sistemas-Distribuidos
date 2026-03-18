@@ -30,7 +30,7 @@ public class Server {
 
         System.out.println("Servidor escutando na porta: " + port + " | Tamanho da Sala: " + maxClients);
 
-        Map<SocketChannel, ByteBuffer> clients = new HashMap<>();
+        Map<SocketChannel, ClientSession> clients = new HashMap<>();
 
         while (true) {
             selector.select();
@@ -45,22 +45,25 @@ public class Server {
                     SocketChannel client = server.accept();
 
                     if (clients.size() >= maxClients) {
-                        client.write(ByteBuffer.wrap("Sala Cheia\n".getBytes()));
+                        Send(client, "Sala Cheia");
                         client.close();
                         continue;
                     }
-
+                    
                     client.configureBlocking(false);
                     client.register(selector, SelectionKey.OP_READ);
-
-                    clients.put(client, ByteBuffer.allocate(1024));
-
+                    
+                    ClientSession newClient = new ClientSession(client);
+                    clients.put(client, newClient);
+                    
                     System.out.println("Cliente conectado (" + clients.size() + "/" + maxClients + ")");
                 }
 
                 if (key.isReadable()) {
                     SocketChannel client = (SocketChannel) key.channel();
-                    ByteBuffer buffer = clients.get(client);
+
+                    ClientSession c = clients.get(client);
+                    ByteBuffer buffer = c.buffer;
 
                     int bytes = client.read(buffer);
 
@@ -68,6 +71,7 @@ public class Server {
                         clients.remove(client);
                         client.close();
                         System.out.println("Cliente desconectado (" + clients.size() + "/" + maxClients + ")");
+                        Broadcast(clients, client, "** " + c.nickname + " saiu da sala **", false);
                         continue;
                     }
 
@@ -80,8 +84,30 @@ public class Server {
 
                     System.out.println("Messagem recebida: " + message);
 
-                    for (SocketChannel other : clients.keySet()) 
-                        if (other != client) other.write(ByteBuffer.wrap((message + "\n").getBytes()));
+                    if (c.nickname == null) {
+                        c.nickname = message;
+
+                        Send(client, "Bem-Vindo ao chat, " + c.nickname + "! Você é o Cliente #" + clients.size() + " de " + maxClients);
+                        Broadcast(clients, client, "** " + c.nickname + " entrou na sala **", false);
+
+                        buffer.clear();
+                        continue;
+                    }
+
+                    if (message.equals("/usuarios")) {
+                        StringBuilder users = new StringBuilder();
+                        users.append("(" + clients.size() + ") Online(s):\n");
+                        for (ClientSession clientConnected : clients.values()) {
+                            users.append("- ").append(clientConnected.nickname).append("\n");
+                        }
+                        Send(client, users.toString());
+                        buffer.clear();
+                        continue;
+                    }
+
+                    message = "[" + c.nickname + "]: " + message;
+
+                    Broadcast(clients, client, message, false);
 
                     buffer.clear();
 
@@ -89,4 +115,17 @@ public class Server {
             }
         }
     }
+
+    private static void Send(SocketChannel client, String message) throws Exception {
+        client.write(ByteBuffer.wrap((message + "\n").getBytes()));
+    }
+
+    private static void Broadcast(Map<SocketChannel, ClientSession> clients, SocketChannel sender, String message, boolean includeSender) throws Exception {
+        for (ClientSession client : clients.values()) {
+            if (!includeSender && client.channel == sender) continue;
+
+            Send(client.channel, message);
+        }
+    }
+
 }

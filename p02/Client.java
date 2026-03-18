@@ -19,6 +19,7 @@ public class Client {
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
         PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        out.println(nickname);
 
         new Thread(() -> {
             try {
@@ -33,6 +34,8 @@ public class Client {
 
                     System.out.println(message);
                 }
+                System.out.println("Desconectado do servidor");
+                System.exit(0);
             }
             catch (Exception ignored) {}
         }).start();
