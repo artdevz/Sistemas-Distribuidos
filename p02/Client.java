@@ -9,6 +9,11 @@ import java.util.Scanner;
 public class Client {
     
     public static void main(String[] args) throws Exception {
+        String nickname = "";
+
+        if (args.length == 1) nickname = args[0];
+        else return;
+
         Socket socket = new Socket("localhost", 8080);
 
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -18,7 +23,16 @@ public class Client {
         new Thread(() -> {
             try {
                 String message;
-                while ((message = in.readLine()) != null) System.out.println(message);
+                while ((message = in.readLine()) != null) {
+                    if (message.equalsIgnoreCase("Sala Cheia")) {
+                        System.out.println("[Server]: Sala Cheia. Encerrando...");
+
+                        try { socket.close(); } catch (Exception ignored) {}
+                        System.exit(0);
+                    }
+
+                    System.out.println(message);
+                }
             }
             catch (Exception ignored) {}
         }).start();
@@ -27,8 +41,21 @@ public class Client {
 
         while (true) {
             String input = scanner.nextLine();
+            if (input.equalsIgnoreCase("/sair")) {
+                System.out.println("Desconectando...");
+                break;
+            }
             out.println(input);
         }
+
+        try {
+            socket.close();
+        }
+        catch (Exception ignored) {}
+
+        scanner.close();
+
+        System.out.println("Client encerrado");
     }
 
 }

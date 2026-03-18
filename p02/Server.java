@@ -11,19 +11,24 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class Server {
-    private static final int PORT = 8080;
-    private static final int MAX_CLIENTS = 2;
 
     public static void main(String[] args) throws Exception {
+        int port = 8080;
+        int maxClients = 2;
+
+        if (args.length >= 1) port = Integer.parseInt(args[0]);
+        if (args.length >= 2) maxClients = Integer.parseInt(args[1]);
+        // if (args.length < 2) System.out.println("Uso: java Server <porta> <maxClientes>");
+
         Selector selector = Selector.open();
 
         ServerSocketChannel server = ServerSocketChannel.open();
         server.configureBlocking(false);
-        server.bind(new InetSocketAddress(PORT));
+        server.bind(new InetSocketAddress(port));
 
         server.register(selector, SelectionKey.OP_ACCEPT);
 
-        System.out.println("Servidor escutando na porta " + PORT);
+        System.out.println("Servidor escutando na porta: " + port + " | Tamanho da Sala: " + maxClients);
 
         Map<SocketChannel, ByteBuffer> clients = new HashMap<>();
 
@@ -39,8 +44,8 @@ public class Server {
                 if (key.isAcceptable()) {
                     SocketChannel client = server.accept();
 
-                    if (clients.size() >= MAX_CLIENTS) {
-                        client.write(ByteBuffer.wrap("Sala cheia\n".getBytes()));
+                    if (clients.size() >= maxClients) {
+                        client.write(ByteBuffer.wrap("Sala Cheia\n".getBytes()));
                         client.close();
                         continue;
                     }
@@ -50,7 +55,7 @@ public class Server {
 
                     clients.put(client, ByteBuffer.allocate(1024));
 
-                    System.out.println("Cliente conectado (" + clients.size() + "/" + MAX_CLIENTS + ")");
+                    System.out.println("Cliente conectado (" + clients.size() + "/" + maxClients + ")");
                 }
 
                 if (key.isReadable()) {
@@ -62,7 +67,7 @@ public class Server {
                     if (bytes == -1) {
                         clients.remove(client);
                         client.close();
-                        System.out.println("Cliente desconectado (" + clients.size() + "/" + MAX_CLIENTS + ")");
+                        System.out.println("Cliente desconectado (" + clients.size() + "/" + maxClients + ")");
                         continue;
                     }
 
